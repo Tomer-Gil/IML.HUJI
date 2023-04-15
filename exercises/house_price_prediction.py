@@ -26,7 +26,7 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     Post-processed design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
-    # X.drop(columns='id', axis=1, inplace=True)
+    X.set_index('id')
     for column in X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])]:
         X[column].replace(np.nan, X[column].mean())
     X.assign(lables=y)
@@ -55,7 +55,26 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     output_path: str (default ".")
         Path to folder in which plots are saved
     """
-    raise NotImplementedError()
+    # X = X.assign(labels=y)
+    # print(X.corr().to_string())
+    X.set_index('id')
+    corr = {feature: X[feature].cov(y)/(np.std(X[feature]) * np.std(y)) for feature in X.drop(columns=['id', 'date'])}
+    corr = sorted(corr.items(), key=lambda key_value_pair: key_value_pair[1], reverse=True)
+    print("feature-price correlation in descending order:")
+    print("----------")
+    for feature in X.drop(columns=['id', 'date']):
+        print("{}-price correlation = {}".format(
+            feature,
+            X[feature].cov(y)/(np.std(X[feature]) * np.std(y))
+        ))
+    for feature_corr in corr:
+        print("{}-price correlation = \t{}".format(
+            feature_corr[0],
+            feature_corr[1]
+        ))
+    # corr = pd.DataFrame(corr)
+    # print(corr.to_string(header=False))
+
 
 
 if __name__ == '__main__':
@@ -69,7 +88,7 @@ if __name__ == '__main__':
     preprocess_data(train_X, train_y)
 
     # Question 3 - Feature evaluation with respect to response
-    # raise NotImplementedError()
+    feature_evaluation(train_X, train_y)
 
     # Question 4 - Fit model over increasing percentages of the overall training data
     # For every percentage p in 10%, 11%, ..., 100%, repeat the following 10 times:
