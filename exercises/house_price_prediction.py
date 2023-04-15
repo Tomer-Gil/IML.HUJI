@@ -55,25 +55,21 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     output_path: str (default ".")
         Path to folder in which plots are saved
     """
-    # X = X.assign(labels=y)
-    # print(X.corr().to_string())
     X.set_index('id')
-    corr = {feature: X[feature].cov(y)/(np.std(X[feature]) * np.std(y)) for feature in X.drop(columns=['id', 'date'])}
-    corr = sorted(corr.items(), key=lambda key_value_pair: key_value_pair[1], reverse=True)
+    pearson_correlation = lambda X, Y: X.cov(Y) / (np.std(X) * np.std(Y))
+    corr = {feature: pearson_correlation(X[feature], y) for feature in X.drop(columns=['id', 'date'])}
+
+    corr = pd.DataFrame.from_dict(corr, orient="index", columns=["correlation"])
+    corr.sort_values(by="correlation", inplace=True, ascending=False)
+
     print("feature-price correlation in descending order:")
     print("----------")
-    for feature in X.drop(columns=['id', 'date']):
-        print("{}-price correlation = {}".format(
-            feature,
-            X[feature].cov(y)/(np.std(X[feature]) * np.std(y))
-        ))
-    for feature_corr in corr:
-        print("{}-price correlation = \t{}".format(
-            feature_corr[0],
-            feature_corr[1]
-        ))
-    # corr = pd.DataFrame(corr)
-    # print(corr.to_string(header=False))
+    # for feature_corr in corr:
+    #     print("{}-price correlation = \t{}".format(
+    #         feature_corr[0],
+    #         feature_corr[1]
+    #     ))
+    print(corr.to_string())
 
 
 
