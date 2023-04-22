@@ -67,6 +67,8 @@ class LinearRegression(BaseEstimator):
             Predicted responses of given samples
         """
         X = np.c_[np.ones(len(X)), X] if self.include_intercept_ else X
+        # To-Do:
+        # Try to use matrix multiplication
         return np.array([sample.dot(self.coefs_) for sample in X])
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
