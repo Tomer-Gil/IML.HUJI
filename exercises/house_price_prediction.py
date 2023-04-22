@@ -8,7 +8,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 pio.templates.default = "simple_white"
+from plotly.subplots import make_subplots
 
+def test_left_join(X: pd.DataFrame, y: Optional[pd.Series] = None):
+    non_negative = X[X['labels'] >= 0]
+    left_df = X.merge(non_negative, on='id', how='left', indicator=True)
+    # temp = X[(X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])] >= 0).all(1)].merge(X.drop_duplicates(), on="id", how='left', indicator=True)
+    # temp[temp['_merge'] == "both"]
 
 def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     """
@@ -26,15 +32,33 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     Post-processed design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
-    X.set_index('id')
+    # X.set_index('id')
+    X = X.assign(price=y)
+    X.dropna(inplace=True)
     for column in X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])]:
         X[column].replace(np.nan, X[column].mean())
-    X.assign(lables=y)
     # X.drop((X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])] < 0).all(1).index, inplace=True)
-    X = X[(X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])] >= 0).all(1)]
-    # temp = X[(X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])] >= 0).all(1)].merge(X.drop_duplicates(), on="id", how='left', indicator=True)
-    # temp[temp['_merge'] == "both"]
-
+    # X = X[(X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])] >= 0).all(1)]
+    # X = X[
+    #     (X['price'] >= 0) |
+    #     (X['bedrooms'].apply(float.is_integer).all() & X['bedrooms'] >= 0) |
+    #     (X['bathrooms'].is_integer & X['bathrooms'] >= 0) |
+    #     (X['sqft_living'] >= 0) |
+    #     (X['sqft_living'] >= 0) |
+    #     (X['floors'].is_integer() & X['floors'] >= 0) |
+    #     (X['waterfront'] in {0, 1}) |
+    #     (X['view'] in {0, 1})
+    #     ]
+    X = X[
+        (X['price'] > 0) &
+        (X['bedrooms'] >= 0) &
+        (X['bathrooms'] >= 0) &
+        (X['sqft_living'] >= 0) &
+        (X['sqft_living'] >= 0) &
+        (X['floors'] >= 0) &
+        (X['waterfront'].isin({0, 1})) &
+        (X['view'].isin({0, 1}))
+        ]
     return X, y
 
 
@@ -56,6 +80,7 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
         Path to folder in which plots are saved
     """
     X.set_index('id')
+    X, y = preprocess_data(X, y)
     pearson_correlation = lambda X, Y: X.cov(Y) / (np.std(X) * np.std(Y))
     corr = {feature: pearson_correlation(X[feature], y) for feature in X.drop(columns=['id', 'date'])}
 
@@ -71,6 +96,46 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     #     ))
     print(corr.to_string())
 
+    X = X.assign(price=y)
+
+    # fig = go.Figure([
+    #     go.Scatter(x=X["sqft_living"], y=X["price"], mode="markers")
+    # ])
+    # fig.update_layout(dict(
+    #     title_text="Correlation between Square footage of the house and its price.",
+    #     xaxis_title="Square Footage of the house",
+    #     yaxis_title="Price"
+    # ))
+    # fig.show()
+    # fig2 = go.Figure([
+    #     go.Scatter(x=X["sqft_lot"], y=X["price"], mode="markers")
+    # ])
+    # fig2.update_layout(title_text="Correlation between Square Footage of the lot and the house price.")
+    # fig2.update_xaxes(title_text="Square footage of lot")
+    # fig2.update_yaxes(title_text="Price")
+    # fig2.show()
+    fig = make_subplots(rows=1, cols=2)
+    fig.add_trace(go.Scatter(x=X["sqft_living"], y=X["price"], mode="markers", showlegend=False), row=1, col=1)
+    fig.add_trace(go.Scatter(x=X["sqft_lot"], y=X["price"], mode="markers", showlegend=False), row=1, col=2)
+    fig.update_layout(
+        title="Correlation between Square footage of the house and its price, and "
+              "between Square Footage of the lot and the house price.",
+        grid=dict(rows=1, columns=2)
+    )
+    # fig2.update_layout(title_text="Correlation between Square Footage of the lot and the house price.")
+    fig.update_xaxes(title_text="Square Footage of the house", row=1, col=1)
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_xaxes(title_text="Square footage of lot", row=1, col=2)
+    fig.update_yaxes(title_text="Price", row=1, col=2)
+    fig.show()
+
+
+def fit_model_increasing_percentages(df: pd.DataFrame):
+    for percentage in range(10, 101):
+        train_samples, train_responses, test_samples, test_responses = split_train_test(
+            df.drop(columns="price"), df['price'], percentage/100
+        )
+        train_samples, train_responses = preprocess_data(train_samples, train_responses)
 
 
 if __name__ == '__main__':
@@ -78,10 +143,11 @@ if __name__ == '__main__':
     df = pd.read_csv("../datasets/house_prices.csv")
 
     # Question 1 - split data into train and test sets
-    train_X, train_y, test_X, test_y = split_train_test(df.drop('price', axis="columns"), df['price'])
+    train_X, train_y, test_X, test_y = split_train_test(df.drop(columns="price"), df['price'])
+    # df.drop('price', axis="columns") equivalent to df.drop(columns="price") but less readable in my opinion
 
     # Question 2 - Preprocessing of housing prices dataset
-    preprocess_data(train_X, train_y)
+    train_X, train_y = preprocess_data(train_X, train_y)
 
     # Question 3 - Feature evaluation with respect to response
     feature_evaluation(train_X, train_y)
