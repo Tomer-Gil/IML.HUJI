@@ -90,7 +90,6 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     X = X.loc[
         ~((X['yr_renovated'] < X['yr_built']) & (X['yr_renovated'] != 0))
     ]
-    X = pd.get_dummies(X, columns=['zipcode'])
     X = X[
             (X['waterfront'].isin({0, 1})) & (X['view'].isin({0, 1}))
     ]
@@ -102,7 +101,8 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     X.drop_duplicates(inplace=True)
 
     # Handle dummy variables
-    X['zipcode'] = X['zipcode'].astype(str)
+    X = pd.get_dummies(X)
+    # X['zipcode'] = X['zipcode'].astype(str)
 
     if y is not None:
         columns_but_price = list(X.columns)
