@@ -56,9 +56,13 @@ class PolynomialFitting(BaseEstimator):
         #     [s for sample in np.vander(X, self.degree_, increasing=True)]
         # )
 
-        # return self.est_.predict(np.vander(X, self.degree_, increasing=True))
+        # Slicing is necessary because np.vander returns vandermonde with powers up to N-1.
+        # Here I have set N = self.degree_ + 1 so N - 1 = self.degree_, and so the first column corresponds to the
+        # intercept, but it is being considered in the Linear regressor object.
+        # Another option - to set the intercept data member to False.
+        return self.est_.predict(np.vander(X, self.degree_ + 1, increasing=True)[:, 1:])
 
-        return self.est_.predict(X)
+        # return self.est_.predict(X)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
