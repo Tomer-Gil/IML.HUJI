@@ -32,13 +32,25 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     Post-processed design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
-    # X.set_index('id')
-    X = X.assign(price=y)
+    if y is not None:
+        X = X.assign(price=y)
+
+    # Drop rows with empty cells and then remove duplicates
     X.dropna(inplace=True)
-    for column in X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])]:
-        X[column].replace(np.nan, X[column].mean())
+
+    # Another option - replace some empty values with mean
+    # for column in X.loc[:, ~X.columns.isin(['date', 'zip', 'lat', 'long'])]:
+    #     X[column].replace(np.nan, X[column].mean())
+    # Second way
     # X.drop((X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])] < 0).all(1).index, inplace=True)
+    # Third way
     # X = X[(X.loc[:, ~X.columns.isin(['date', 'lat', 'long'])] >= 0).all(1)]
+
+    # Cleaning wrong format
+    X['date'] = pd.to_datetime(X['date'], errors='coerce')
+    X.dropna(subset=['date'], inplace=True)
+
+    # Filter wrong data
     # X = X[
     #     (X['price'] >= 0) |
     #     (X['bedrooms'].apply(float.is_integer).all() & X['bedrooms'] >= 0) |
@@ -49,17 +61,54 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     #     (X['waterfront'] in {0, 1}) |
     #     (X['view'] in {0, 1})
     #     ]
+    # Another option
+    # X = X[
+    #     (X['price'] > 0) & (X['bedrooms'] >= 0) & (X['bathrooms'] >= 0) & (X['sqft_living'] >= 0) &
+    #     (X['sqft_living'] >= 0) & (X['floors'] >= 0) & (X['waterfront'].isin({0, 1})) &
+    #     (X['view'].isin({0, 1}))
+    # ]
     X = X[
-        (X['price'] > 0) &
-        (X['bedrooms'] >= 0) &
-        (X['bathrooms'] >= 0) &
-        (X['sqft_living'] >= 0) &
-        (X['sqft_living'] >= 0) &
-        (X['floors'] >= 0) &
-        (X['waterfront'].isin({0, 1})) &
-        (X['view'].isin({0, 1}))
-        ]
-    return X, y
+        (X['bedrooms'] >= 0) & (X['bathrooms'] >= 0)
+    ]
+    X = X[X['floors'] >= 0]
+    X = X[
+        (X['condition'] > 0) & (X['grade'] > 0)
+    ]
+    X = X[
+        (X['sqft_living'].abs() >= X['sqft_lot'].abs() * 1/1000)
+        & (X['sqft_living15'].abs() >= X['sqft_lot15'] * 1/1000)
+    ]
+    X[['sqft_living', 'sqft_lot', 'sqft_living15', 'sqft_lot15']] = X[
+        ['sqft_living', 'sqft_lot', 'sqft_living15', 'sqft_lot15']
+    ].abs()
+    X = X[
+        (X['sqft_above'] >= 0) & (X['sqft_basement'] >= 0)
+    ]
+    # X = X.loc[
+    #     X['yr_built'].str.isdigit(), X['yr_renovated'].str.isdigit()
+    # ]
+    X = X.loc[
+        ~((X['yr_renovated'] < X['yr_built']) & (X['yr_renovated'] != 0))
+    ]
+    X = pd.get_dummies(X, columns=['zipcode'])
+    X = X[
+            (X['waterfront'].isin({0, 1})) & (X['view'].isin({0, 1}))
+    ]
+    X = X[
+        X['price'] > 0
+    ]
+
+    # Remove duplicates
+    X.drop_duplicates(inplace=True)
+
+    # Handle dummy variables
+    X['zipcode'] = X['zipcode'].astype(str)
+
+    if y is not None:
+        columns_but_price = list(X.columns)
+        columns_but_price.remove('price')
+        return X[columns_but_price], X['price']
+    return X
 
 
 def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") -> NoReturn:
@@ -148,7 +197,7 @@ if __name__ == '__main__':
 
     # Question 2 - Preprocessing of housing prices dataset
     train_X, train_y = preprocess_data(train_X, train_y)
-
+    test_X = preprocess_data(test_X)
     # Question 3 - Feature evaluation with respect to response
     feature_evaluation(train_X, train_y)
 
