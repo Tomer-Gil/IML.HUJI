@@ -89,8 +89,3 @@ def softmax(X: np.ndarray) -> np.ndarray:
         Softmax(x) for every sample x in given data X
     """
     raise NotImplementedError()
-
-if __name__ == "__main__":
-    y_true = np.linspace(-2, 2, 5)
-    y_pred = np.linspace(-1, 3, 5)
-    mean_square_error(y_true, y_pred)
