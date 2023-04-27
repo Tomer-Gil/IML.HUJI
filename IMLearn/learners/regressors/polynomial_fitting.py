@@ -20,7 +20,7 @@ class PolynomialFitting(BaseEstimator):
         """
         super().__init__()
         self.degree_ = k
-        self.est_ = LinearRegression()
+        self.est_ = LinearRegression(include_intercept=False)
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
         """
@@ -60,7 +60,7 @@ class PolynomialFitting(BaseEstimator):
         # Here I have set N = self.degree_ + 1 so N - 1 = self.degree_, and so the first column corresponds to the
         # intercept, but it is being considered in the Linear regressor object.
         # Another option - to set the intercept data member to False.
-        return self.est_.predict(np.vander(X, self.degree_ + 1, increasing=True)[:, 1:])
+        return self.est_.predict(self.__transform(X))
 
         # return self.est_.predict(X)
 
@@ -81,7 +81,7 @@ class PolynomialFitting(BaseEstimator):
         loss : float
             Performance under MSE loss function
         """
-        return ((self._predict(X) - y) ** 2).mean()
+        return self.est_.loss(self.__transform(X), y)
 
     def __transform(self, X: np.ndarray) -> np.ndarray:
         """
@@ -96,4 +96,4 @@ class PolynomialFitting(BaseEstimator):
         transformed: ndarray of shape (n_samples, k+1)
             Vandermonde matrix of given samples up to degree k
         """
-        return np.vander(X, self.degree_, increasing=True)
+        return np.vander(X, self.degree_ + 1, increasing=True)
