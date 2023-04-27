@@ -90,26 +90,3 @@ class LinearRegression(BaseEstimator):
         """
         y_pred = self.predict(X)
         return ((y_pred - y) ** 2).mean()
-
-if __name__ == "__main__":
-    est = LinearRegression()
-    est.fit(np.array([
-        [1, 2, 3],
-        [4, 5, 6]
-    ]),
-    np.array([
-        6,
-        15
-    ]))
-    est.predict(np.array([
-        [1, 2, 3],
-        [8, 10, 12]
-    ]))
-    est.loss(np.array([
-        [1, 2, 3],
-        [8, 10, 12]
-    ]),
-    np.array([
-        6.5,
-        29
-    ]))
