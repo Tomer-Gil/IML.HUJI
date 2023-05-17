@@ -74,12 +74,7 @@ class LDA(BaseEstimator):
         """
 
         return np.array([
-            np.argmax([
-                np.log(self.pi_[k])
-                + np.einsum("i,ij,i->", sample, self._cov_inv, sample)
-                - 0.5 * np.einsum("i,ij,i->", self.mu_[k], self._cov_inv, sample)
-                for k in self.classes_
-            ]) for sample in X
+            np.argmax(likelihoods) for likelihoods in self.likelihood(X)
         ])
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
@@ -100,15 +95,14 @@ class LDA(BaseEstimator):
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
-        # return np.array([
-        #     [
-        #         np.log(self.pi_[k])
-        #         + np.einsum("i,ij,i->", sample, self._cov_inv, sample)
-        #         - 0.5 * np.einsum("i,ij,i->", self.mu_[k], self._cov_inv, sample)
-        #         for k in self.classes_
-        #     ] for sample in X
-        # ])
-        raise NotImplementedError()
+        return np.array([
+            [
+                np.log(self.pi_[k])
+                + np.einsum("i,ij,i->", sample, self._cov_inv, sample)
+                - 0.5 * np.einsum("i,ij,i->", self.mu_[k], self._cov_inv, sample)
+                for k in self.classes_
+            ] for sample in X
+        ])
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
