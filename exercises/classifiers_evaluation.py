@@ -4,11 +4,12 @@ from utils import *
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from math import atan2, pi
+import plotly.express as px
 
 
 def load_dataset(filename: str) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Load dataset for comparing the Gaussian Naive Bayes and LDA classifiers. File is assumed to be an
+    Load dataset for comparing the Gaussian Naive Bayes and LDA classifiers. File is assumed to be a
     ndarray of shape (n_samples, 3) where the first 2 columns represent features and the third column the class
 
     Parameters
@@ -36,17 +37,25 @@ def run_perceptron():
     Create a line plot that shows the perceptron algorithm's training loss values (y-axis)
     as a function of the training iterations (x-axis).
     """
-    for n, f in [("Linearly Separable", "linearly_separable.npy"), ("Linearly Inseparable", "linearly_inseparable.npy")]:
+    traces = []
+    for n, f in [("Linearly Separable", "../datasets/linearly_separable.npy"), ("Linearly Inseparable", "../datasets/linearly_inseparable.npy")]:
         # Load dataset
-        raise NotImplementedError()
+        X, y = load_dataset(f)
 
         # Fit Perceptron and record loss in each fit iteration
         losses = []
-        raise NotImplementedError()
+        p = Perceptron(callback=lambda: losses.append(p.loss(X, y)))
+        p.fit(X, y)
+        # traces.append(px.line(x=list(range(len(losses))), y=losses))
+        traces.append(
+            go.Scatter(x=list(range(len(losses))), y=losses, mode="lines")
+        )
+
 
         # Plot figure of loss as function of fitting iteration
-        raise NotImplementedError()
-
+        # raise NotImplementedError()
+    make_subplots(1, 2, subplot_titles=(r"Linearly Separable", r"Linearly Inseparable")).add_traces(
+        traces, rows=[1, 1], cols=[1, 2]).update_layout(title=r"Loss as Function of Fitting Iteration").show()
 
 def get_ellipse(mu: np.ndarray, cov: np.ndarray):
     """
@@ -103,4 +112,4 @@ def compare_gaussian_classifiers():
 if __name__ == '__main__':
     np.random.seed(0)
     run_perceptron()
-    compare_gaussian_classifiers()
+    # compare_gaussian_classifiers()

@@ -73,17 +73,21 @@ class Perceptron(BaseEstimator):
         -----
         Fits model with or without an intercept depending on value of `self.fit_intercept_`
         """
-        w = np.zeros(X.shape[1] + 1 if self.include_intercept_ else X.shape[1])
+        self.coefs_ = np.zeros(X.shape[1] + 1 if self.include_intercept_ else X.shape[1])
+        if self.include_intercept_:
+            X = np.c_[np.ones(len(X)), X]
+        self.fitted_ = True
         for _ in range(self.max_iter_):
+            self.callback_()
             is_misclassified_sampled = False
             for i, sample in enumerate(X):
                 # Had it had been promised the samples (X) and observations (y) have the same indexes, it would have
                 # been possible to give up the enumerate function
-                if y[i] * (np.dot(sample, w)) <= 0:
-                    w += y[i] * sample
+                if y[i] * (np.dot(sample, self.coefs_)) <= 0:
+                    self.coefs_ += y[i] * sample
                     is_misclassified_sampled = True
             if not is_misclassified_sampled:
-                return w
+                return
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -99,6 +103,8 @@ class Perceptron(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
+        if self.include_intercept_:
+            X = np.c_[np.ones(len(X)), X]
         return np.sign(X @ self.coefs_)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
