@@ -54,7 +54,7 @@ def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     -------
     Accuracy of given predictions
     """
-    raise NotImplementedError()
+    return (y_true == y_pred).sum() / len(y_true)
 
 
 def cross_entropy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -89,3 +89,5 @@ def softmax(X: np.ndarray) -> np.ndarray:
         Softmax(x) for every sample x in given data X
     """
     raise NotImplementedError()
+
+# accuracy(np.array([1, 1, -1, 1, -1, -1]), np.array([1, -1, -1, 1, 1, 1,]))
