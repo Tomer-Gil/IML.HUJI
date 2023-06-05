@@ -46,13 +46,14 @@ class LDA(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        self.classes_ = np.unique(y)
+        self.classes_ = np.unique(y).astype(np.int)
+        y = y.astype(np.int)
         self.mu_ = np.array([
-            self.mu_.append(np.mean(X[y == label_class], axis=0)) for label_class in self.classes_
+            np.mean(X[y == label_class], axis=0) for label_class in self.classes_
         ])
         self.cov_ = np.sum(np.array([
             np.outer(sample - self.mu_[y[i]], sample - self.mu_[y[i]]) for i, sample in enumerate(X)
-        ])) / len(y)
+        ]), axis=0) / len(y)
         self._cov_inv = np.linalg.inv(self.cov_)
         self.pi_ = np.array([
             len(X[y == label_class]) / len(X) for label_class in self.classes_
@@ -95,11 +96,14 @@ class LDA(BaseEstimator):
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
+        def normal_dist_prob(x, mu, cov_mat):
+            return ((2 * np.pi) ** len(x) * np.linalg.det(cov_mat)) ** 0.5 * np.exp(
+                -1/2 * np.einsum("i,j,ij->", (x - mu), (x - mu), np.linalg.inv(cov_mat))
+            )
         return np.array([
             [
-                np.log(self.pi_[k])
-                + np.einsum("i,ij,i->", sample, self._cov_inv, sample)
-                - 0.5 * np.einsum("i,ij,i->", self.mu_[k], self._cov_inv, sample)
+                self.pi_[k]
+                * normal_dist_prob(sample, self.mu_[k], self.cov_)
                 for k in self.classes_
             ] for sample in X
         ])

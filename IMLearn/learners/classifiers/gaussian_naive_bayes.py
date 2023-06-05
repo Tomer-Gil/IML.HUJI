@@ -39,7 +39,17 @@ class GaussianNaiveBayes(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        self.classes_ = np.unique(y).astype(np.int)
+        self.pi_ = np.array([
+            len(X[y == k]) / len(X) for k in self.classes_
+        ])
+        self.mu_ = np.array([
+            [np.mean(X[y == k, j]) for j in range(X.shape[1])] for k in self.classes_
+        ])
+        self.vars_ = np.array([
+            np.diag([np.mean((X[y == k, j] - self.mu_[k][j]) ** 2) for j in range(X.shape[1])]) for k in self.classes_
+        ])
+
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -55,7 +65,10 @@ class GaussianNaiveBayes(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        return np.array([
+            np.argmax(x)
+            for x in self.likelihood(X)
+        ])
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
         """
@@ -75,7 +88,20 @@ class GaussianNaiveBayes(BaseEstimator):
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
 
-        raise NotImplementedError()
+        def normal_dist_prob(x, mu, cov_mat):
+            return ((2 * np.pi) ** len(x) * np.linalg.det(cov_mat)) ** 0.5 * np.exp(
+                -1/2 * np.einsum("i,j,ij->", (x - mu), (x - mu), np.linalg.inv(cov_mat))
+            )
+        # The einstein sum is equivalent to
+        # np.einsum("i, ij, j->", (X[0] - self.mu_[0]), self.vars_[0], (X[0] - self.mu_[0]))
+        # np.einsum("i, ij, j->", (x - mu), np.linalg.inc(cov_mat), (x - mu))
+        return np.array([
+            [
+                self.pi_[j]
+                * normal_dist_prob(x, self.mu_[j], self.vars_[j])
+                for j in self.classes_
+            ] for x in X
+        ])
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -95,4 +121,4 @@ class GaussianNaiveBayes(BaseEstimator):
             Performance under missclassification loss function
         """
         from ...metrics import misclassification_error
-        raise NotImplementedError()
+        return misclassification_error(y, self.predict(X))
