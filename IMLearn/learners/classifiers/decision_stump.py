@@ -3,6 +3,7 @@ from typing import Tuple, NoReturn
 from IMLearn.base import BaseEstimator
 import numpy as np
 from itertools import product
+from IMLearn.metrics import loss_functions
 
 
 class DecisionStump(BaseEstimator):
@@ -39,47 +40,15 @@ class DecisionStump(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        def get_most_frequent_label(labels: np.ndarray) -> int:
-            values, labels_counts = np.unique(labels, return_counts=True)
-            ind = np.argmax(labels_counts)
-            return values[ind]
+        lowest_error = np.inf  # Equivalent to lowest_error = 1
+        for j, sign in product(range(X.shape[1]), [-1, 1]):
+            threshold, threshold_error = self._find_threshold(X[:, j], y, sign)
+            if threshold_error < lowest_error:
+                lowest_error = threshold_error
+                self.j_ = j
+                self.threshold_ = threshold
+                self.sign_ = sign
 
-        def get_error(labels: np.ndarray, sign: int):
-            return (labels != sign).sum()
-
-        # X = np.c_[X, y]
-        # lowest_error = np.inf
-        # for i in range(X.shape[1]):
-        #     for t in X[:, i].unique():
-        #         # lowers, uppers = X[X[:, i] < t], X[X[:, i] >= t]
-        #         # # _, lowers_labels_counts = np.unique(lowers[:, -1], return_counts=True)
-        #         # # _, uppers_labels_counts = np.unique(uppers[:, -1], return_counts=True)
-        #         # lowers_label, uppers_label = get_most_frequent_label(lowers[:, -1]), \
-        #         #     get_most_frequent_label(uppers[:, -1])
-        #         # err = get_error(lowers[:, -1], lowers_label) + get_error(uppers[:, -1], uppers_label)
-        #
-        #         if err < lowest_error:
-        #             lowest_error = err
-        #             self.j_ = i
-        #             self.threshold_ = t
-        #             self.sign_ =
-        X = np.c_[X, y]
-        for j in range(X.shape[1]):
-            for t in np.unique(X[:, j]):
-                lowers, uppers = X[X[:, j] < t], X[X[:, j] >= t]
-                for sign in [-1, 1]:
-                    err = get_error(lowers[:, -1], sign) + get_error(uppers[:, -1], -sign)
-                    if err < lowest_error:
-                        lowest_error = err
-                        self.j_ = j
-                        self.threshold_ = t
-                        self.sign_ = sign
-
-        # err = np.inf
-        # for j, sign in product(range(X.shape[1]), [-1, 1]):
-        #     thr, thr_err = self._find_threshold(X[:, j], y, sign)
-        #     if thr_err < err:
-        #         self.threshold_, self.j_, self.sign_, err = thr, j, sign, thr_err
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
         Predict sign responses for given samples using fitted estimator
@@ -102,9 +71,13 @@ class DecisionStump(BaseEstimator):
         Feature values strictly below threshold are predicted as `-sign` whereas values which equal
         to or above the threshold are predicted as `sign`
         """
-        raise NotImplementedError()
+        return np.array([
+            -self.sign if sample[self.j_] < self.threshold_ else self.sign_ for sample in X
+        ])
 
     def _find_threshold(self, values: np.ndarray, labels: np.ndarray, sign: int) -> Tuple[float, float]:
+        def get_error(labels: np.ndarray, sign: int):
+            return (labels != sign).sum()
         """
         Given a feature vector and labels, find a threshold by which to perform a split
         The threshold is found according to the value minimizing the misclassification
@@ -134,17 +107,14 @@ class DecisionStump(BaseEstimator):
         For every tested threshold, values strictly below threshold are predicted as `-sign` whereas values
         which equal to or above the threshold are predicted as `sign`
         """
-        ids = np.argsort(values)
-        values, labels = values[ids], labels[ids]
-
-        # Loss for classifying all as `sign` - namely, if threshold is smaller than values[0]
-        loss = np.sum(np.abs(labels)[np.sign(labels) == sign])
-
-        # Loss of classifying threshold being each of the values given
-        loss = np.append(loss, loss - np.cumsum(labels * sign))
-
-        id = np.argmin(loss)
-        return np.concatenate([[-np.inf], values[1:], [np.inf]])[id], loss[id]
+        temp_error = np.inf
+        for t in np.concatenate([[-np.inf], np.unique(values), [np.inf]]):
+            lowers, uppers = labels[values < t], labels[values >= t]
+            err = get_error(lowers, -sign) + get_error(uppers, sign)
+            if err < temp_error:
+                temp_threshold = t
+                temp_error = err
+        return temp_threshold, temp_error / len(values)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -163,10 +133,19 @@ class DecisionStump(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        raise NotImplementedError()
+        return loss_functions.misclassification_error(y, self.predict(X))
 
-d = DecisionStump()
-# d.fit(np.random.randn(20, 3), np.random.randint(-1, 2, 20))
-# d.fit(np.random.randn(20, 3), np.array([1, 1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, 1, -1]))
-d.fit(np.random.randn(5, 3), np.array([1, 1, -1, -1, 1]))
-print()
+
+def test_find_threshold():
+    d = DecisionStump()
+    d._find_threshold(np.array([1.5, 7, 4.33]), np.array([1, -1, 1]), -1)
+
+
+if __name__ == "__main__":
+    d = DecisionStump()
+    # d.fit(np.random.randn(20, 3), np.random.randint(-1, 2, 20))
+    # d.fit(np.random.randn(20, 3), np.array([1, 1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, 1, -1]))
+    d.fit(np.random.randn(5, 3), np.array([1, 1, -1, -1, 1]))
+    print()
+
+    test_find_threshold()
