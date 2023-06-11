@@ -72,12 +72,12 @@ class DecisionStump(BaseEstimator):
         to or above the threshold are predicted as `sign`
         """
         return np.array([
-            -self.sign if sample[self.j_] < self.threshold_ else self.sign_ for sample in X
+            -self.sign_ if sample[self.j_] < self.threshold_ else self.sign_ for sample in X
         ])
 
     def _find_threshold(self, values: np.ndarray, labels: np.ndarray, sign: int) -> Tuple[float, float]:
         def get_error(labels: np.ndarray, sign: int):
-            return (labels != sign).sum()
+            return (np.sign(labels) != sign).sum()
         """
         Given a feature vector and labels, find a threshold by which to perform a split
         The threshold is found according to the value minimizing the misclassification
@@ -104,11 +104,12 @@ class DecisionStump(BaseEstimator):
 
         Notes
         -----
-        For every tested threshold, values strictly below threshold are predicted as `-sign` whereas values
-        which equal to or above the threshold are predicted as `sign`
+        For every tested threshold, values strictly below threshold are predicted as `sign` whereas values
+        which equal to or above the threshold are predicted as `-sign`
         """
         temp_error = np.inf
-        for t in np.concatenate([[-np.inf], np.unique(values), [np.inf]]):
+        temp_threshold = -np.inf
+        for t in np.concatenate([[-np.inf], np.unique(values)[1:], [np.inf]]):
             lowers, uppers = labels[values < t], labels[values >= t]
             err = get_error(lowers, -sign) + get_error(uppers, sign)
             if err < temp_error:
