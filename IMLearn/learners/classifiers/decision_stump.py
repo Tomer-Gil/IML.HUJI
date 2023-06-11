@@ -76,8 +76,6 @@ class DecisionStump(BaseEstimator):
         ])
 
     def _find_threshold(self, values: np.ndarray, labels: np.ndarray, sign: int) -> Tuple[float, float]:
-        def get_error(labels: np.ndarray, sign: int):
-            return (np.sign(labels) != sign).sum()
         """
         Given a feature vector and labels, find a threshold by which to perform a split
         The threshold is found according to the value minimizing the misclassification
@@ -107,15 +105,16 @@ class DecisionStump(BaseEstimator):
         For every tested threshold, values strictly below threshold are predicted as `sign` whereas values
         which equal to or above the threshold are predicted as `-sign`
         """
-        temp_error = np.inf
-        temp_threshold = -np.inf
-        for t in np.concatenate([[-np.inf], np.unique(values)[1:], [np.inf]]):
-            lowers, uppers = labels[values < t], labels[values >= t]
-            err = get_error(lowers, -sign) + get_error(uppers, sign)
-            if err < temp_error:
-                temp_threshold = t
-                temp_error = err
-        return temp_threshold, temp_error / len(values)
+
+        sorted_ids = np.argsort(values)
+        values, labels = values[sorted_ids], labels[sorted_ids]
+
+        total_corrects = np.sum(np.abs(labels)[np.sign(labels) == sign])
+
+        correct_per_threshold = np.append(total_corrects, total_corrects - np.cumsum(labels * sign))
+
+        opt_id = np.argmin(correct_per_threshold)
+        return np.concatenate([[-np.inf], values[1:], [np.inf]])[opt_id], correct_per_threshold[opt_id]
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
