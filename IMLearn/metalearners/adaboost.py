@@ -3,6 +3,8 @@ from IMLearn.base import BaseEstimator
 from typing import Callable, NoReturn
 from IMLearn.metrics import loss_functions
 from IMLearn.learners.classifiers.decision_stump import DecisionStump
+import pandas as pd
+import pickle
 
 class AdaBoost(BaseEstimator):
     """
@@ -61,12 +63,40 @@ class AdaBoost(BaseEstimator):
         for t in range(0, self.iterations_):
             new_model = self.wl_().fit(X, y * self.D_)
             self.models_.append(new_model)
+
             y_pred = new_model.predict(X)
             epsilon = np.sum(self.D_[y != y_pred])
             new_weight = 0.5 * np.log(epsilon**-1 - 1)
             self.weights_[t] = new_weight
+
             self.D_ = self.D_ * np.exp(-y * new_weight * y_pred)
             self.D_ = self.D_ / np.sum(self.D_)
+
+    def _fit_their(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
+        """
+        Fit an AdaBoost classifier over given samples
+
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+            Input data to fit an estimator for
+
+        y : ndarray of shape (n_samples, )
+            Responses of input data to fit to
+        """
+        self.models_, self.weights_, self.D_ = [], np.zeros(self.iterations_), np.ones(len(y), dtype=np.float64) / len(y)
+        for i in range(0, self.iterations_):
+            # Fit a new weak learner on given data, weighted according to current distribution
+            self.models_.append(self.wl_().fit(X, y * self.D_))
+
+            # Calculate learner's weight
+            y_pred = self.models_[-1].predict(X)
+            epsilon = np.sum(self.D_[y != y_pred])
+            self.weights_[i] = .5 * np.log(1. / epsilon - 1)
+
+            # Adjust samples' distribution
+            self.D_ *= np.exp(-y_pred * y * self.weights_[i])
+            self.D_ /= np.sum(self.D_)
 
     def _predict(self, X):
         """
@@ -126,6 +156,10 @@ class AdaBoost(BaseEstimator):
                 for weight, model in zip(self.weights_, self.models_[:t])
             ]), axis=0))
 
+        # weighted_prediction = np.sum([self.weights_[t] * self.models_[t].predict(X)
+        #                               for t in range(0, min(T, self.iterations_))], axis=0)
+        # return np.sign(weighted_prediction)
+
     def partial_loss(self, X: np.ndarray, y: np.ndarray, T: int) -> float:
         """
         Evaluate performance under misclassification loss function using fitted estimators up to T learners
@@ -146,8 +180,20 @@ class AdaBoost(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        t = np.min(T, self.iterations_)
-        return loss_functions.misclassification_error(y[:t], self.partial_predict(X, T))
+        t = np.min([T, self.iterations_])
+        return loss_functions.misclassification_error(y, self.partial_predict(X, T))
+
+    def export_fitted(self, learners_path: str, weights_path: str, distribution_path: str):
+        # pd.DataFrame(np.array(self.weights_)).to_csv(weights_path)
+        # pd.DataFrame()
+        pickle.dump(self.models_, open(learners_path, "wb"))
+        pickle.dump(self.weights_, open(weights_path, "wb"))
+        pickle.dump(self.D_, open(distribution_path, "wb"))
+
+    def import_fitted(self, learners_path: str, weights_path: str, distribution_path: str):
+        self.models_ = pickle.load(open(learners_path, "rb"))
+        self.weights_ = pickle.load(open(weights_path, "rb"))
+        self.D_ = pickle.load(open(distribution_path, "rb"))
 
 
 if __name__ == "__main__":
