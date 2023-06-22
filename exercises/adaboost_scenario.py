@@ -45,8 +45,6 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=
     # Question 1: Train- and test errors of AdaBoost in noiseless case
     model = AdaBoost(DecisionStump, n_learners)
     model.fit(train_X, train_y)
-    # a.export_fitted("learners.sav", "weights.sav", "distribution.sav")
-    # a.import_fitted("learners.sav", "weights.sav", "distribution.sav")
     train_error = [model.partial_loss(train_X, train_y, i) for i in range(1, n_learners + 1)]
     test_error = [model.partial_loss(test_X, test_y, i) for i in range(1, n_learners + 1)]
 
@@ -78,8 +76,6 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=
             cols=i+1
         )
     fig.update_layout(width=1000, height=700)
-    # fig.update_xaxes(visible=False)
-    # fig.update_yaxes(visible=False)
     fig.write_image("q2_adaboost_no_noise_decision_boundaries_noise_{}.png".format(noise))
 
     # Question 3: Decision surface of best performing ensemble
@@ -115,7 +111,6 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=
         height=700
     ))
     fig.write_image("q4_with_noise_{}.png".format(noise))
-
 
 
 if __name__ == '__main__':

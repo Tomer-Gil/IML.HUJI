@@ -72,32 +72,6 @@ class AdaBoost(BaseEstimator):
             self.D_ = self.D_ * np.exp(-y * new_weight * y_pred)
             self.D_ = self.D_ / np.sum(self.D_)
 
-    def _fit_their(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
-        """
-        Fit an AdaBoost classifier over given samples
-
-        Parameters
-        ----------
-        X : ndarray of shape (n_samples, n_features)
-            Input data to fit an estimator for
-
-        y : ndarray of shape (n_samples, )
-            Responses of input data to fit to
-        """
-        self.models_, self.weights_, self.D_ = [], np.zeros(self.iterations_), np.ones(len(y), dtype=np.float64) / len(y)
-        for i in range(0, self.iterations_):
-            # Fit a new weak learner on given data, weighted according to current distribution
-            self.models_.append(self.wl_().fit(X, y * self.D_))
-
-            # Calculate learner's weight
-            y_pred = self.models_[-1].predict(X)
-            epsilon = np.sum(self.D_[y != y_pred])
-            self.weights_[i] = .5 * np.log(1. / epsilon - 1)
-
-            # Adjust samples' distribution
-            self.D_ *= np.exp(-y_pred * y * self.weights_[i])
-            self.D_ /= np.sum(self.D_)
-
     def _predict(self, X):
         """
         Predict responses for given samples using fitted estimator over all boosting iterations
@@ -155,10 +129,6 @@ class AdaBoost(BaseEstimator):
                 weight * model.predict(X)
                 for weight, model in zip(self.weights_, self.models_[:t])
             ]), axis=0))
-
-        # weighted_prediction = np.sum([self.weights_[t] * self.models_[t].predict(X)
-        #                               for t in range(0, min(T, self.iterations_))], axis=0)
-        # return np.sign(weighted_prediction)
 
     def partial_loss(self, X: np.ndarray, y: np.ndarray, T: int) -> float:
         """
